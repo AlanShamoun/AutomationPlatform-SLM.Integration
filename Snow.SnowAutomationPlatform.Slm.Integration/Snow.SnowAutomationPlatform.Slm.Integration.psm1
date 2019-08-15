@@ -15,6 +15,7 @@ Function Get-SLMStoreApplications
         [ValidateRange(1,1000)]
         [int]$AppsPerRequest = 200,
 
+        # This parameter is obsolete and will be ignored
         [Parameter(Mandatory = $false)]
         [switch]$GetAllApps
     )
@@ -100,23 +101,20 @@ Function Get-SLMStoreApplications
         Add-SLMApps -TargetArrayList $StoreAppsList -StoreAppsJSON $StoreApps
         #endregion
 
-        #region Getting All SLM apps if requested with parameter GetAllApps
-        if ($GetAllApps)
+        #region Getting All SLM apps
+        $AmountOfExtraCalls = [Math]::Ceiling($AmountOfApps/$AppsPerRequest)-1 #Subtraction one for the first call already done
+        if ($AmountOfExtraCalls -gt 0)
         {
-            $AmountOfExtraCalls = [Math]::Ceiling($AmountOfApps/$AppsPerRequest)-1 #Subtraction one for the first call already done
-            if ($AmountOfExtraCalls -gt 0)
+            Write-Verbose -Message "$AmountOfExtraCalls additional API calls needed to get all SLM store applications"
+            $SkipValue = $AppsPerRequest
+            for ($i = 1; $i -le $AmountOfExtraCalls; $i++) 
             {
-                Write-Verbose -Message "$AmountOfExtraCalls additional API calls needed to get all SLM store applications"
-                $SkipValue = $AppsPerRequest
-                for ($i = 1; $i -le $AmountOfExtraCalls; $i++) 
-                {
-                    $PreSkipValueForLogging = $SkipValue
-                    $extraRequestUri = $CleanSLMUri + '?$top=' + $AppsPerRequest + '&$skip=' + $SkipValue + '&$format=json'
-                    $MoreSLMApps = Invoke-RestMethod -Uri $extraRequestUri -Credential $Credentials
-                    Add-SLMApps -TargetArrayList $StoreAppsList -StoreAppsJSON $MoreSLMApps
-                    $SkipValue = $SkipValue + $AppsPerRequest
-                    Write-Verbose -Message "Call $i/$AmountOfExtraCalls, collected SLM apps $PreSkipValueForLogging to $SkipValue"
-                }
+                $PreSkipValueForLogging = $SkipValue
+                $extraRequestUri = $CleanSLMUri + '?$top=' + $AppsPerRequest + '&$skip=' + $SkipValue + '&$format=json'
+                $MoreSLMApps = Invoke-RestMethod -Uri $extraRequestUri -Credential $Credentials
+                Add-SLMApps -TargetArrayList $StoreAppsList -StoreAppsJSON $MoreSLMApps
+                $SkipValue = $SkipValue + $AppsPerRequest
+                Write-Verbose -Message "Call $i/$AmountOfExtraCalls, collected SLM apps $PreSkipValueForLogging to $SkipValue"
             }
         }
         #endregion
@@ -142,6 +140,7 @@ Function Get-SLMReharvestInformation
         [ValidateRange(1,1000)]
         [int]$InitialAppLoad = 200,
 
+        # This parameter is obsolete and will be ignored
         [Parameter(Mandatory = $false)]
         [boolean]$GetAllApps = $false
     )
@@ -199,14 +198,7 @@ Function Get-SLMReharvestInformation
     }
     elseif($StoreApps.Body.Count -lt $AmountOfApps)
     {
-        if($GetAllApps)
-        {
-            Write-Verbose -Message "$AmountOfApps applications available" 
-        }
-        else
-        {
-            Write-Verbose -Message "$AmountOfApps applications available, only collecting the first $InitialAppLoad" 
-        }
+        Write-Verbose -Message "$AmountOfApps applications available" 
     }
     #endregion
 
@@ -215,25 +207,22 @@ Function Get-SLMReharvestInformation
     Add-SLMApps -TargetArrayList $StoreAppsList -StoreAppsJSON $StoreApps
     #endregion
 
-    #region Getting All SLM apps if requested with parameter GetAllApps
-    if($GetAllApps)
+    #region Getting All SLM apps
+    $AmountOfExtraCalls = [Math]::Ceiling($AmountOfApps/$ResultsPerPage)-1 #Subtraction one for the first call already done
+    if($AmountOfExtraCalls -gt 0)
     {
-        $AmountOfExtraCalls = [Math]::Ceiling($AmountOfApps/$ResultsPerPage)-1 #Subtraction one for the first call already done
-        if($AmountOfExtraCalls -gt 0)
+        Write-Verbose -Message "$AmountOfExtraCalls additional API calls needed to get all SLM store applications"
+        $SkipValue = $ResultsPerPage
+
+        for ($i = 1; $i -le $AmountOfExtraCalls; $i++)
         {
-            Write-Verbose -Message "$AmountOfExtraCalls additional API calls needed to get all SLM store applications"
-            $SkipValue = $ResultsPerPage
+            $PreSkipValueForLogging = $SkipValue
 
-            for ($i = 1; $i -le $AmountOfExtraCalls; $i++)
-            {
-                $PreSkipValueForLogging = $SkipValue
+            $MoreSLMApps = Invoke-RestMethod -Uri $($CleanSLMUri + $TopResultsString + $ResultsPerPage + '&' + '$skip=' + $SkipValue + '&' + $JsonData) -Credential $Credentials
+            Add-SLMApps -TargetArrayList $StoreAppsList -StoreAppsJSON $MoreSLMApps
 
-                $MoreSLMApps = Invoke-RestMethod -Uri $($CleanSLMUri + $TopResultsString + $ResultsPerPage + '&' + '$skip=' + $SkipValue + '&' + $JsonData) -Credential $Credentials
-                Add-SLMApps -TargetArrayList $StoreAppsList -StoreAppsJSON $MoreSLMApps
-
-                $SkipValue = $SkipValue + $ResultsPerPage
-                Write-Verbose -Message "Call $i/$AmountOfExtraCalls, collected SLM apps $PreSkipValueForLogging to $SkipValue"
-            }
+            $SkipValue = $SkipValue + $ResultsPerPage
+            Write-Verbose -Message "Call $i/$AmountOfExtraCalls, collected SLM apps $PreSkipValueForLogging to $SkipValue"
         }
     }
     #endregion
